@@ -1,7 +1,8 @@
 "use client";
 
 import { signOut, useSession } from "@/app/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Wallet, History, LayoutDashboard } from "lucide-react";
+import { History, LayoutDashboard, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function Navbar() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link href="/dashboard" className="font-semibold tracking-tight">
-          vndefi
+          VNDeFi
         </Link>
 
         <DropdownMenu>
