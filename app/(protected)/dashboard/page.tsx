@@ -6,12 +6,18 @@ import { headers } from "next/headers";
 import Link from "next/link";
 
 async function getMoneyTruth(shopId: string) {
+  const now = new Date();
   const [commissionsPaid, commissionsPending, withdrawalsPending] =
     await Promise.all([
+      // Total commissions PAID ET disponibles (availableAt IS NULL OR availableAt <= now)
       prisma.commission.aggregate({
         where: {
           shopId,
           status: "PAID",
+          OR: [
+            { availableAt: null },
+            { availableAt: { lte: now } },
+          ],
         },
         _sum: {
           netRevenue: true,

@@ -26,13 +26,18 @@ export async function GET(request: Request) {
     }
 
     // Calculer les totaux en parallèle
+    const now = new Date();
     const [commissionsPaid, commissionsPending, withdrawalsPending] =
       await Promise.all([
-        // Total commissions PAID
+        // Total commissions PAID ET disponibles (availableAt IS NULL OR availableAt <= now)
         prisma.commission.aggregate({
           where: {
             shopId: shop.id,
             status: "PAID",
+            OR: [
+              { availableAt: null },
+              { availableAt: { lte: now } },
+            ],
           },
           _sum: {
             netRevenue: true,
@@ -66,8 +71,9 @@ export async function GET(request: Request) {
     const totalCommissionsPending = commissionsPending._sum.netRevenue ?? 0;
     const totalWithdrawalsPending = withdrawalsPending._sum.requestedAmount ?? 0;
 
-    // Available balance = Total commissions PAID - Total withdrawals PENDING
+    // Available balance = Total commissions PAID ET DISPONIBLES - Total withdrawals PENDING
     // (on ne soustrait pas les withdrawals PAID car ils sont déjà déduits du disponible)
+    // Une commission est disponible si: status = PAID AND (availableAt IS NULL OR availableAt <= now)
     const availableBalance = totalCommissionsPaid - totalWithdrawalsPending;
 
     return NextResponse.json({
