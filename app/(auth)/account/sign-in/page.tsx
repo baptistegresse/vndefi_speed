@@ -84,9 +84,11 @@ export default function SignIn() {
                   password
                 },
                 {
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   onRequest: (_ctx) => {
                     setLoading(true);
                   },
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   onResponse: (_ctx) => {
                     setLoading(false);
                   },
