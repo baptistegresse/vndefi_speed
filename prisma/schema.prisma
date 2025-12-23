@@ -1,0 +1,304 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+
+// ==========================
+// CORE BUSINESS
+// ==========================
+
+model Shop {
+  id              String   @id @default(cuid())
+  name            String
+  address         String
+  affiliationCode String   @unique
+  commissionRate  Float    @default(0.10)
+  isActive        Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String? @unique
+  user   User?
+
+  affiliateUsers AffiliateUser[]
+  invoices       Invoice[]
+  commissions    Commission[]
+  withdrawals    Withdrawal[]
+
+  @@index([isActive])
+  @@map("shops")
+}
+
+model AffiliateUser {
+  id                String              @id @default(cuid())
+  status            AffiliateUserStatus @default(SIGNUP)
+
+  partnerUserId     String
+  acquisitionSource AffiliateSource     @default(QR)
+
+  activatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shopId String
+  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  walletProviderId String
+  walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
+
+  invoices    Invoice[]
+  commissions Commission[]
+
+  @@index([shopId])
+  @@index([walletProviderId])
+  @@index([status])
+  @@index([partnerUserId])
+  @@index([walletProviderId, partnerUserId])
+  @@index([acquisitionSource])
+  @@map("affiliate_users")
+}
+
+model WalletProvider {
+  id        String   @id @default(cuid())
+  name      String?
+  apiKey    String   @unique
+  isActive  Boolean  @default(true)
+
+  cpaAmount Float
+
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  affiliateUsers AffiliateUser[]
+  invoices       Invoice[]
+  commissions    Commission[]
+
+  @@index([isActive])
+  @@map("wallet_providers")
+}
+
+model Invoice {
+  id            String           @id @default(cuid())
+  eventType     RevenueEventType @default(CPA)
+  status        InvoiceStatus    @default(PENDING)
+
+  grossRevenue  Float
+
+  currency         String?
+  amountInCurrency Float?
+  transactionHash  String? @unique
+  rawPayload       Json?
+
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  affiliateUserId String
+  affiliateUser   AffiliateUser @relation(fields: [affiliateUserId], references: [id], onDelete: Cascade)
+
+  shopId String
+  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  walletProviderId String
+  walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
+
+  commissions Commission[]
+
+  @@index([shopId])
+  @@index([walletProviderId])
+  @@index([status])
+  @@index([eventType])
+  @@index([affiliateUserId])
+  @@index([shopId, createdAt])
+  @@index([shopId, status, createdAt])
+  @@map("invoices")
+}
+
+model Commission {
+  id String @id @default(cuid())
+
+  eventType RevenueEventType @default(CPA)
+  status    CommissionStatus @default(PENDING)
+
+  grossRevenue     Float
+  netRevenue       Float
+  platformRevenue  Float
+
+  availableAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shopId String
+  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  walletProviderId String
+  walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
+
+  affiliateUserId String
+  affiliateUser   AffiliateUser @relation(fields: [affiliateUserId], references: [id], onDelete: Cascade)
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([shopId])
+  @@index([status])
+  @@index([eventType])
+  @@index([affiliateUserId])
+  @@index([invoiceId])
+  @@index([shopId, createdAt])
+  @@map("commissions")
+}
+
+model Withdrawal {
+  id String @id @default(cuid())
+
+  requestedAmount Float
+  payoutAmount    Float?
+
+  paymentType        PaymentType
+  destinationAddress String?
+
+  status          WithdrawalStatus @default(PENDING)
+  transactionHash String? @unique
+
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shopId String
+  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([status])
+  @@index([paymentType])
+  @@index([shopId, createdAt])
+  @@map("withdrawals")
+}
+
+// ==========================
+// ENUMS
+// ==========================
+
+enum AffiliateUserStatus {
+  SIGNUP
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AffiliateSource {
+  QR
+  LINK
+  API
+}
+
+enum RevenueEventType {
+  CPA
+  DEPOSIT
+  REVENUE_SHARE
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum PaymentType {
+  CRYPTO
+  FIAT
+}
