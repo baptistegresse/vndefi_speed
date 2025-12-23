@@ -165,6 +165,7 @@ model Invoice {
   currency         String?
   amountInCurrency Float?
   transactionHash  String? @unique
+  externalId       String? @unique // ID externe du provider pour idempotence
   rawPayload       Json?
 
   paidAt    DateTime?
@@ -189,6 +190,7 @@ model Invoice {
   @@index([affiliateUserId])
   @@index([shopId, createdAt])
   @@index([shopId, status, createdAt])
+  @@index([externalId])
   @@map("invoices")
 }
 
@@ -251,6 +253,22 @@ model Withdrawal {
   @@index([paymentType])
   @@index([shopId, createdAt])
   @@map("withdrawals")
+}
+
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  eventId    String   @unique
+  type       String
+  payload    Json
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([provider])
+  @@index([eventId])
+  @@index([type])
+  @@index([processedAt])
+  @@map("webhook_events")
 }
 
 // ==========================

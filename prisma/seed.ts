@@ -1,4 +1,8 @@
+import { config } from "dotenv";
 import { PrismaClient } from "../app/generated/prisma/client";
+
+// Charger les variables d'environnement depuis .env
+config();
 
 const prisma = new PrismaClient();
 
