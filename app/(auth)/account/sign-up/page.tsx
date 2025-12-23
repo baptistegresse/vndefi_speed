@@ -1,195 +1,153 @@
 "use client";
 
 import { signUp } from "@/app/lib/auth-client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
-  CardTitle
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, X } from "lucide-react";
-import Image from "next/image";
+import { AlertCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 
 export default function SignUp() {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!name || !email || !password || !passwordConfirmation) {
+      setError("Please fill in all fields");
+      return;
     }
+
+    if (password !== passwordConfirmation) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    await signUp.email({
+      email,
+      password,
+      name,
+      callbackURL: "/dashboard",
+      fetchOptions: {
+        onRequest: () => setLoading(true),
+        onResponse: () => setLoading(false),
+        onError: (ctx) => {
+          setError(ctx.error.message || "Failed to create account");
+        },
+        onSuccess: () => {
+          router.push("/dashboard");
+        },
+      },
+    });
   };
 
   return (
-    <Card className="z-50 rounded-md rounded-t-none max-w-md">
-      <CardHeader>
-        <CardTitle className="text-lg md:text-xl">Sign Up</CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Enter your information to create an account
+    <Card className="w-full max-w-sm">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl">Create an account</CardTitle>
+        <CardDescription>
+          Enter your details to get started
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="first-name">First name</Label>
-              <Input
-                id="first-name"
-                placeholder="Max"
-                required
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setFirstName(e.target.value);
-                }}
-                value={firstName}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="last-name">Last name</Label>
-              <Input
-                id="last-name"
-                placeholder="Robinson"
-                required
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setLastName(e.target.value);
-                }}
-                value={lastName}
-              />
-            </div>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="John Doe"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+            />
           </div>
-          <div className="grid gap-2">
+
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="m@example.com"
+              placeholder="you@example.com"
               required
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setEmail(e.target.value);
-              }}
               value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
             />
           </div>
-          <div className="grid gap-2">
+
+          <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              required
               value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              placeholder="Password"
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Confirm Password</Label>
-            <Input
-              id="password_confirmation"
-              type="password"
-              value={passwordConfirmation}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordConfirmation(e.target.value)}
-              autoComplete="new-password"
-              placeholder="Confirm Password"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="image">Profile Image (optional)</Label>
-            <div className="flex items-end gap-4">
-              {imagePreview && (
-                <div className="relative w-16 h-16 rounded-sm overflow-hidden">
-                  <Image
-                    src={imagePreview}
-                    alt="Profile preview"
-                    layout="fill"
-                    objectFit="cover"
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2 w-full">
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full"
-                />
-                {imagePreview && (
-                  <X
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setImage(null);
-                      setImagePreview(null);
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-            onClick={async () => {
-              await signUp.email({
-                email,
-                password,
-                name: `${firstName} ${lastName}`,
-                image: image ? await convertImageToBase64(image) : "",
-                callbackURL: "/dashboard",
-                fetchOptions: {
-                  onResponse: () => {
-                    setLoading(false);
-                  },
-                  onRequest: () => {
-                    setLoading(true);
-                  },
-                  onError: (ctx) => {
-                    toast.error(ctx.error.message);
-                  },
-                  onSuccess: async () => {
-                    router.push("/dashboard");
-                  },
-                },
-              });
-            }}
-          >
-            {loading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              "Create an account"
-            )}
-          </Button>
-        </div>
-      </CardContent>
 
+          <div className="space-y-2">
+            <Label htmlFor="password-confirm">Confirm password</Label>
+            <Input
+              id="password-confirm"
+              type="password"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              required
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+          </Button>
+        </CardContent>
+      </form>
+      <CardFooter className="flex justify-center">
+        <p className="text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link href="/account/sign-in" className="text-primary underline-offset-4 hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </CardFooter>
     </Card>
   );
-}
-
-async function convertImageToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }

@@ -1,12 +1,20 @@
-"use client"
+"use client";
 
 import { signIn } from "@/app/lib/auth-client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -15,102 +23,97 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    await signIn.email(
+      { email, password },
+      {
+        onRequest: () => setLoading(true),
+        onResponse: () => setLoading(false),
+        onError: (ctx) => {
+          setError(ctx.error.message || "Invalid credentials");
+        },
+      }
+    );
+  };
 
   return (
-    <Card className="max-w-md">
-      <CardHeader>
-        <CardTitle className="text-lg md:text-xl">Sign In</CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Enter your email below to login to your account
+    <Card className="w-full max-w-sm">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl">Sign in</CardTitle>
+        <CardDescription>
+          Enter your credentials to access your account
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          <div className="grid gap-2">
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="m@example.com"
+              placeholder="you@example.com"
               required
-              onChange={(e) => {
-                setEmail(e.target.value);
-              }}
               value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
             />
           </div>
 
-          <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="#"
-                className="ml-auto inline-block text-sm underline"
-              >
-                Forgot your password?
-              </Link>
-            </div>
-
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              placeholder="password"
-              autoComplete="password"
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center space-x-2">
             <Checkbox
               id="remember"
-              onClick={() => {
-                setRememberMe(!rememberMe);
-              }}
+              checked={rememberMe}
+              onCheckedChange={(checked) => setRememberMe(checked === true)}
             />
-            <Label htmlFor="remember">Remember me</Label>
+            <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+              Remember me
+            </Label>
           </div>
 
-
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-            onClick={async () => {
-              await signIn.email(
-                {
-                  email,
-                  password
-                },
-                {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  onRequest: (_ctx) => {
-                    setLoading(true);
-                  },
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  onResponse: (_ctx) => {
-                    setLoading(false);
-                  },
-                },
-              );
-            }}
-          >
-            {loading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <p> Login </p>
-            )}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
           </Button>
-        </div>
-      </CardContent>
-
-      <CardFooter>
-        <Link href="/account/sign-up">
-          Don&apos;t have an account? Sign up
-        </Link>
+        </CardContent>
+      </form>
+      <CardFooter className="flex justify-center">
+        <p className="text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/account/sign-up" className="text-primary underline-offset-4 hover:underline">
+            Sign up
+          </Link>
+        </p>
       </CardFooter>
-
     </Card>
   );
 }
