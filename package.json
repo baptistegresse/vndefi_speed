@@ -4,16 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:seed-cycle": "tsx prisma/seed-financial-cycle.ts",
     "prisma:seed-demo": "tsx prisma/seed-demo.ts",
     "webhook:test": "tsx prisma/seed-webhook.test.ts"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
