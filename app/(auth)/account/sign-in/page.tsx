@@ -16,9 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignIn() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,10 +37,13 @@ export default function SignIn() {
     }
 
     await signIn.email(
-      { email, password },
+      { email, password, rememberMe },
       {
         onRequest: () => setLoading(true),
         onResponse: () => setLoading(false),
+        onSuccess: () => {
+          router.push("/dashboard");
+        },
         onError: (ctx) => {
           setError(ctx.error.message || "Invalid credentials");
         },
