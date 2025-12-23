@@ -25,6 +25,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  shop Shop?
+
   @@unique([email])
   @@map("user")
 }
@@ -77,24 +79,23 @@ model Verification {
   @@map("verification")
 }
 
-
 // ==========================
 // CORE BUSINESS
 // ==========================
 
 model Shop {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   name            String
   address         String
-  affiliationCode String   @unique
-  commissionRate  Float    @default(0.10)
-  isActive        Boolean  @default(true)
+  affiliationCode String  @unique
+  commissionRate  Float   @default(0.10)
+  isActive        Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   userId String? @unique
-  user   User?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   affiliateUsers AffiliateUser[]
   invoices       Invoice[]
@@ -106,18 +107,18 @@ model Shop {
 }
 
 model AffiliateUser {
-  id                String              @id @default(cuid())
-  status            AffiliateUserStatus @default(SIGNUP)
+  id     String              @id @default(cuid())
+  status AffiliateUserStatus @default(SIGNUP)
 
   partnerUserId     String
-  acquisitionSource AffiliateSource     @default(QR)
+  acquisitionSource AffiliateSource @default(QR)
 
   activatedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   shopId String
-  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   walletProviderId String
   walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
@@ -135,16 +136,16 @@ model AffiliateUser {
 }
 
 model WalletProvider {
-  id        String   @id @default(cuid())
-  name      String?
-  apiKey    String   @unique
-  isActive  Boolean  @default(true)
+  id       String  @id @default(cuid())
+  name     String?
+  apiKey   String  @unique
+  isActive Boolean @default(true)
 
   cpaAmount Float
 
   lastUsedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   affiliateUsers AffiliateUser[]
   invoices       Invoice[]
@@ -155,11 +156,11 @@ model WalletProvider {
 }
 
 model Invoice {
-  id            String           @id @default(cuid())
-  eventType     RevenueEventType @default(CPA)
-  status        InvoiceStatus    @default(PENDING)
+  id        String           @id @default(cuid())
+  eventType RevenueEventType @default(CPA)
+  status    InvoiceStatus    @default(PENDING)
 
-  grossRevenue  Float
+  grossRevenue Float
 
   currency         String?
   amountInCurrency Float?
@@ -167,14 +168,14 @@ model Invoice {
   rawPayload       Json?
 
   paidAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   affiliateUserId String
   affiliateUser   AffiliateUser @relation(fields: [affiliateUserId], references: [id], onDelete: Cascade)
 
   shopId String
-  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   walletProviderId String
   walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
@@ -197,16 +198,16 @@ model Commission {
   eventType RevenueEventType @default(CPA)
   status    CommissionStatus @default(PENDING)
 
-  grossRevenue     Float
-  netRevenue       Float
-  platformRevenue  Float
+  grossRevenue    Float
+  netRevenue      Float
+  platformRevenue Float
 
   availableAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   shopId String
-  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   walletProviderId String
   walletProvider   WalletProvider @relation(fields: [walletProviderId], references: [id], onDelete: Cascade)
@@ -217,7 +218,7 @@ model Commission {
   invoiceId String?
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
-  @@index([shopId])
+  @@index([shopId, status])
   @@index([status])
   @@index([eventType])
   @@index([affiliateUserId])
@@ -236,14 +237,14 @@ model Withdrawal {
   destinationAddress String?
 
   status          WithdrawalStatus @default(PENDING)
-  transactionHash String? @unique
+  transactionHash String?          @unique
 
   paidAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   shopId String
-  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId])
   @@index([status])
