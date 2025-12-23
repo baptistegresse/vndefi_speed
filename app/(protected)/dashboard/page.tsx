@@ -1,7 +1,9 @@
 import { auth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { headers } from "next/headers";
+import Link from "next/link";
 
 async function getMoneyTruth(shopId: string) {
   const [commissionsPaid, commissionsPending, withdrawalsPending] =
@@ -171,6 +173,28 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Traçabilité</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Consultez le détail de chaque transaction pour justifier chaque
+              euro affiché.
+            </p>
+            <div className="flex gap-4">
+              <Button asChild variant="outline" className="flex-1">
+                <Link href="/dashboard/commissions">Voir les commissions</Link>
+              </Button>
+              <Button asChild variant="outline" className="flex-1">
+                <Link href="/dashboard/withdrawals">Voir les retraits</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
