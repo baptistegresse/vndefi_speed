@@ -29,20 +29,36 @@ X-Event-Id: evt_123456
 ### Body (JSON)
 ```json
 {
-  "type": "invoice.paid",
+  "type": "user.signup",
+  "data": {
+    "shopId": "shop_123",
+    "walletProviderId": "wallet_789",
+    "partnerUserId": "partner_user_123",
+    "acquisitionSource": "QR"
+  }
+}
+
+{
+  "type": "user.activated",
   "data": {
     "externalInvoiceId": "inv_987",
     "shopId": "shop_123",
-    "affiliateUserId": "aff_456",
     "walletProviderId": "wallet_789",
-    "grossAmount": 1000,
+    "partnerUserId": "partner_user_123",
+    "grossRevenue": 1000,
     "currency": "EUR",
     "paidAt": "2025-12-23T20:57:00Z",
     "eventType": "CPA",
-    "transactionHash": "0x..."
+    "transactionHash": "0x...",
+    "acquisitionSource": "QR"
   }
 }
 ```
+
+**Notes clés:** 
+- `user.signup` crée/maj uniquement l'`AffiliateUser` en `SIGNUP` (aucune dette)
+- `user.activated` (ou alias `invoice.paid`) crée/maj l'`Invoice` en `PAID` et passe l'`AffiliateUser` en `ACTIVE`
+- `partnerUserId` recommandé ; `affiliateUserId` accepté si déjà connu
 
 ## 🎯 Règles d'or
 
@@ -78,12 +94,20 @@ POST /api/webhooks/provider
 2. Vérification HMAC
 3. Vérification timestamp (anti-replay)
 4. Vérification idempotence (WebhookEvent)
-5. Création/mise à jour Invoice
-6. Logging & audit
+5. `user.signup` → création/MAJ `AffiliateUser` en `SIGNUP`
+6. `user.activated`/`invoice.paid` → `AffiliateUser` en `ACTIVE` + création/MAJ `Invoice`
+7. Logging & audit
 
 ## ⚠️ Important
 
 - **JAMAIS** de création de Commission dans le webhook
 - Les commissions sont générées par un job séparé après création d'Invoice
 - L'Invoice est la source de vérité unique
+
+## 📚 Documentation complète
+
+Pour plus de détails, consultez :
+
+- **[EXAMPLES.md](./EXAMPLES.md)** : Exemples `user.signup` et `user.activated` (CPA)
+- **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)** : Guide d'intégration avec exemples de code (Node.js, Python, PHP, Go, Ruby, cURL)
 

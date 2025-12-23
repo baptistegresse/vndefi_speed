@@ -27,62 +27,51 @@ export async function GET(request: Request) {
 
     // Calculer les totaux en parallèle
     const now = new Date();
-    const [commissionsPaid, commissionsPending, withdrawalsPending] =
+    const [commissionsAvailable, commissionsPending, withdrawalsPending, withdrawalsPaid] =
       await Promise.all([
-        // Total commissions PAID ET disponibles (availableAt IS NULL OR availableAt <= now)
+        // Commissions PAID et déjà disponibles (availableAt IS NULL OR <= now)
         prisma.commission.aggregate({
           where: {
             shopId: shop.id,
             status: "PAID",
-            OR: [
-              { availableAt: null },
-              { availableAt: { lte: now } },
-            ],
+            OR: [{ availableAt: null }, { availableAt: { lte: now } }],
           },
-          _sum: {
-            netRevenue: true,
-          },
+          _sum: { netRevenue: true },
         }),
-
-        // Total commissions PENDING
+        // Commissions PENDING (non acquises)
         prisma.commission.aggregate({
-          where: {
-            shopId: shop.id,
-            status: "PENDING",
-          },
-          _sum: {
-            netRevenue: true,
-          },
+          where: { shopId: shop.id, status: "PENDING" },
+          _sum: { netRevenue: true },
         }),
-
-        // Total withdrawals PENDING
+        // Withdrawals en attente
         prisma.withdrawal.aggregate({
-          where: {
-            shopId: shop.id,
-            status: "PENDING",
-          },
-          _sum: {
-            requestedAmount: true,
-          },
+          where: { shopId: shop.id, status: "PENDING" },
+          _sum: { requestedAmount: true },
+        }),
+        // Withdrawals déjà payés (pour information)
+        prisma.withdrawal.aggregate({
+          where: { shopId: shop.id, status: "PAID" },
+          _sum: { payoutAmount: true },
         }),
       ]);
 
-    const totalCommissionsPaid = commissionsPaid._sum.netRevenue ?? 0;
+    const totalCommissionsAvailable = commissionsAvailable._sum.netRevenue ?? 0;
     const totalCommissionsPending = commissionsPending._sum.netRevenue ?? 0;
     const totalWithdrawalsPending = withdrawalsPending._sum.requestedAmount ?? 0;
+    const totalWithdrawalsPaid = withdrawalsPaid._sum.payoutAmount ?? 0;
 
-    // Available balance = Total commissions PAID ET DISPONIBLES - Total withdrawals PENDING
-    // (on ne soustrait pas les withdrawals PAID car ils sont déjà déduits du disponible)
-    // Une commission est disponible si: status = PAID AND (availableAt IS NULL OR availableAt <= now)
-    const availableBalance = totalCommissionsPaid - totalWithdrawalsPending;
+    // Solde disponible = commissions disponibles - retraits en attente
+    const availableBalance = totalCommissionsAvailable - totalWithdrawalsPending;
 
     return NextResponse.json({
-      totalCommissionsPaid,
-      totalCommissionsPending,
-      totalWithdrawalsPending,
-      availableBalance: Math.max(0, availableBalance), // Ne peut pas être négatif
       shopId: shop.id,
       shopName: shop.name,
+      currency: "EUR",
+      commissionsAvailable: totalCommissionsAvailable,
+      commissionsPending: totalCommissionsPending,
+      withdrawalsPending: totalWithdrawalsPending,
+      withdrawalsPaid: totalWithdrawalsPaid,
+      availableBalance: Math.max(0, availableBalance), // Ne peut pas être négatif
     });
   } catch (error) {
     console.error("Error fetching money truth:", error);

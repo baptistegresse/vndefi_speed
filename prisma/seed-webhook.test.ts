@@ -20,6 +20,7 @@ const prisma = new PrismaClient();
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "test-secret";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+const PROVIDER_HEADER = process.env.WEBHOOK_PROVIDER || "test-provider";
 
 /**
  * Génère une signature HMAC pour un webhook
@@ -65,6 +66,7 @@ async function sendWebhook(
       "X-Signature": signature,
       "X-Timestamp": timestamp,
       "X-Event-Id": eventId,
+      "X-Provider": PROVIDER_HEADER,
     },
     body,
   });
@@ -124,21 +126,9 @@ async function main() {
   console.log("\n");
 
   // ============================================
-  // Test 3: Webhook valide (nécessite des données de test)
+  // Test 3: Webhook valide avec création automatique d'AffiliateUser
   // ============================================
-  console.log("3️⃣ Test: Webhook valide (nécessite shop/affiliate/wallet provider)");
-  console.log("─".repeat(50));
-  console.log("⚠️  Ce test nécessite des données de test dans la DB");
-  console.log("   Exécutez d'abord: bun run prisma:seed");
-  console.log("\n");
-
-  // Note: Pour tester complètement, il faudrait créer un shop, affiliate user, et wallet provider
-  // et utiliser leurs IDs réels. Pour l'instant, on teste juste la structure.
-
-  // ============================================
-  // Test 4: Idempotence (même eventId)
-  // ============================================
-  console.log("4️⃣ Test: Idempotence (même eventId)");
+  console.log("3️⃣ Test: Webhook valide avec création automatique d'AffiliateUser");
   console.log("─".repeat(50));
 
   // Récupérer les IDs réels du seed
@@ -150,52 +140,93 @@ async function main() {
     where: { apiKey: "test-wallet-provider-seed" },
   });
 
-  const affiliateUser = await prisma.affiliateUser.findFirst({
-    where: { shopId: shop?.id },
-  });
-
-  if (!shop || !walletProvider || !affiliateUser) {
-    console.log("⚠️  Données de test non trouvées - test d'idempotence simplifié");
-    console.log("   Exécutez d'abord: bun run prisma:seed");
-    
-    // Test simplifié avec des IDs fictifs (l'idempotence fonctionne quand même)
-    const eventId = `evt_idempotence_${Date.now()}`;
-    const data = {
-      externalInvoiceId: `inv_idempotence_${Date.now()}`,
-      shopId: "test-shop-id",
-      affiliateUserId: "test-affiliate-id",
-      walletProviderId: "test-wallet-id",
-      grossAmount: 1000,
+  if (!shop || !walletProvider) {
+    console.warn("⚠️  Données de test manquantes. Exécutez 'bun run prisma:seed' d'abord.");
+    console.log("\n");
+  } else {
+    // Test avec partnerUserId (création automatique d'AffiliateUser)
+    const eventIdValid = `evt_valid_${Date.now()}`;
+    const partnerUserId = `partner_${Date.now()}`;
+    const dataValid = {
+      externalInvoiceId: `inv_valid_${Date.now()}`,
+      shopId: shop.id,
+      partnerUserId: partnerUserId, // Utiliser partnerUserId au lieu de affiliateUserId
+      walletProviderId: walletProvider.id,
+      grossRevenue: 1200,
       currency: "EUR",
-      eventType: "CPA",
+      paidAt: new Date().toISOString(),
     };
 
-    // Premier appel (échouera mais enregistrera l'événement)
-    const test4aResponse = await sendWebhook(eventId, "invoice.paid", data);
-    const test4aJson = await test4aResponse.json().catch(() => ({ duplicated: undefined }));
-    console.log(`Premier appel: ${test4aResponse.status} - duplicated: ${test4aJson.duplicated}`);
+    const test3Response = await sendWebhook(eventIdValid, "invoice.paid", dataValid);
+    const test3Json = await test3Response.json();
 
-    // Deuxième appel (même eventId) - doit détecter l'idempotence
-    const test4bResponse = await sendWebhook(eventId, "invoice.paid", data);
-    const test4bJson = await test4bResponse.json();
-
-    if (test4bJson.duplicated === true) {
-      console.log("✅ Idempotence fonctionne (duplicated: true)");
+    if (test3Response.status === 200 && !test3Json.duplicated) {
+      console.log("✅ Webhook valide traité avec succès (200)");
+      
+      // Vérifier que l'Invoice a été créée
+      if (test3Json.invoiceId) {
+        const createdInvoice = await prisma.invoice.findUnique({
+          where: { id: test3Json.invoiceId },
+        });
+        if (createdInvoice) {
+          console.log(`   ✅ Invoice ${createdInvoice.id} créée.`);
+          
+          // Vérifier que l'AffiliateUser a été créé automatiquement
+          const createdAffiliateUser = await prisma.affiliateUser.findFirst({
+            where: {
+              partnerUserId: partnerUserId,
+              walletProviderId: walletProvider.id,
+              shopId: shop.id,
+            },
+          });
+          
+          if (createdAffiliateUser) {
+            console.log(`   ✅ AffiliateUser ${createdAffiliateUser.id} créé automatiquement (partnerUserId: ${partnerUserId})`);
+          } else {
+            console.error("   ❌ AffiliateUser non trouvé après création.");
+          }
+        } else {
+          console.error("   ❌ Invoice non trouvée après création.");
+        }
+      }
     } else {
-      console.error(`❌ Idempotence échouée - duplicated devrait être true`);
-      console.error(`Réponse: ${JSON.stringify(test4bJson, null, 2)}`);
+      console.error(`❌ Attendu 200, reçu ${test3Response.status} - duplicated: ${test3Json.duplicated}`);
+      console.error(`Réponse: ${JSON.stringify(test3Json, null, 2)}`);
     }
+  }
+
+  console.log("\n");
+
+  // ============================================
+  // Test 4: Idempotence (même eventId)
+  // ============================================
+  console.log("4️⃣ Test: Idempotence (même eventId)");
+  console.log("─".repeat(50));
+
+  // Récupérer les IDs réels du seed
+  const shopForIdempotence = await prisma.shop.findFirst({
+    where: { affiliationCode: "TEST-SHOP-SEED" },
+  });
+
+  const walletProviderForIdempotence = await prisma.walletProvider.findFirst({
+    where: { apiKey: "test-wallet-provider-seed" },
+  });
+
+  if (!shopForIdempotence || !walletProviderForIdempotence) {
+    console.warn("⚠️  Données de test manquantes. Exécutez 'bun run prisma:seed' d'abord.");
+    console.log("\n");
   } else {
-    // Test complet avec les vrais IDs
+    // Test avec partnerUserId (création automatique d'AffiliateUser)
     const eventId = `evt_idempotence_${Date.now()}`;
+    const partnerUserId = `partner_idempotence_${Date.now()}`;
     const data = {
       externalInvoiceId: `inv_idempotence_${Date.now()}`,
-      shopId: shop.id,
-      affiliateUserId: affiliateUser.id,
-      walletProviderId: walletProvider.id,
-      grossAmount: 1000,
+      shopId: shopForIdempotence.id,
+      partnerUserId: partnerUserId, // Utiliser partnerUserId
+      walletProviderId: walletProviderForIdempotence.id,
+      grossRevenue: 1000,
       currency: "EUR",
-      eventType: "CPA",
+      paidAt: new Date().toISOString(),
     };
 
     // Premier appel
@@ -205,6 +236,8 @@ async function main() {
 
     if (test4aResponse.status === 200 && test4aJson.duplicated === false) {
       console.log("✅ Premier appel réussi - Invoice créée");
+    } else {
+      console.error(`❌ Premier appel échoué: ${JSON.stringify(test4aJson, null, 2)}`);
     }
 
     // Deuxième appel (même eventId) - doit détecter l'idempotence
@@ -245,9 +278,8 @@ async function main() {
   console.log("\n");
 
   console.log("✅ Tests terminés");
-  console.log("\n📝 Note: Pour tester complètement avec des données réelles,");
-  console.log("   créez d'abord un shop, affiliate user et wallet provider,");
-  console.log("   puis utilisez leurs IDs dans les tests.");
+  console.log("\n📝 Note: Le webhook crée automatiquement les AffiliateUser");
+  console.log("   si partnerUserId est fourni dans le payload.");
 }
 
 main()

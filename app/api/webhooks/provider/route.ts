@@ -11,6 +11,11 @@ import { NextResponse } from "next/server";
  * - X-Event-Id: evt_123456
  * 
  * Body: JSON avec type et data
+ * 
+ * Types supportés:
+ * - user.signup     -> crée/maj AffiliateUser en SIGNUP
+ * - user.activated  -> crée/maj Invoice PAID + passe AffiliateUser en ACTIVE
+ * - invoice.paid    -> compat: alias de user.activated
  */
 export async function POST(request: Request) {
   try {
@@ -18,6 +23,7 @@ export async function POST(request: Request) {
     const signature = request.headers.get("X-Signature");
     const timestamp = request.headers.get("X-Timestamp");
     const eventId = request.headers.get("X-Event-Id");
+    const provider = request.headers.get("X-Provider");
 
     if (!signature) {
       return NextResponse.json(
@@ -36,6 +42,13 @@ export async function POST(request: Request) {
     if (!eventId) {
       return NextResponse.json(
         { error: "X-Event-Id header manquant" },
+        { status: 400 }
+      );
+    }
+
+    if (!provider) {
+      return NextResponse.json(
+        { error: "X-Provider header manquant" },
         { status: 400 }
       );
     }
@@ -82,25 +95,43 @@ export async function POST(request: Request) {
       );
     }
 
-    // Déterminer le provider (pour l'instant, on utilise "provider" par défaut)
-    // TODO: Ajouter un header X-Provider ou le détecter depuis le payload
-    const provider = "provider";
+    const supportedTypes = new Set([
+      "user.signup",
+      "user.activated",
+      "invoice.paid",
+    ]);
+
+    if (!supportedTypes.has(payload.type)) {
+      return NextResponse.json(
+        { error: "Type d'événement non supporté" },
+        { status: 400 }
+      );
+    }
+
+    const typedPayload = payload as {
+      type: "user.signup" | "user.activated" | "invoice.paid";
+      data: Record<string, unknown>;
+    };
 
     // Traiter l'événement
     const result = await handleWebhookEvent(
       provider,
       eventId,
-      payload.type,
-      payload as { type: string; data: Record<string, unknown> }
+      typedPayload.type,
+      typedPayload
     );
 
     console.log(`[Webhook] Event ${eventId} traité avec succès (duplicated: ${result.duplicated})`);
 
-    return NextResponse.json({
-      ok: true,
-      duplicated: result.duplicated,
-      invoiceId: result.invoiceId,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        duplicated: result.duplicated,
+        invoiceId: result.invoiceId,
+        affiliateUserId: result.affiliateUserId,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("[Webhook] Erreur lors du traitement:", error);
 

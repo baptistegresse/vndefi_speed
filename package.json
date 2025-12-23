@@ -9,6 +9,7 @@
     "lint": "eslint",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:seed-cycle": "tsx prisma/seed-financial-cycle.ts",
+    "prisma:seed-demo": "tsx prisma/seed-demo.ts",
     "webhook:test": "tsx prisma/seed-webhook.test.ts"
   },
   "prisma": {
